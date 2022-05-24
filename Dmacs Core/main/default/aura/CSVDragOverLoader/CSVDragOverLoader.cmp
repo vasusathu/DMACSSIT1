@@ -1,0 +1,118 @@
+
+<aura:component controller="CSVDragOverManager" implements="force:appHostable,flexipage:availableForAllPageTypes,flexipage:availableForRecordHome,force:hasRecordId,forceCommunity:availableForAllPageTypes" access="global" >
+    <aura:attribute name="TableContent" type="String"  description=" Show the Result class"/>
+    <aura:attribute name="TargetFileName" type="String"  description="Name of the file"/>
+    <aura:attribute name="tableheaders" type="String[]"/>
+    <aura:attribute name="rData" type="Object[]" />
+    <aura:attribute name="errorData" type="Object[]" />
+    <aura:attribute name="cycleYearInvalidData" type="Object[]" />
+    <aura:attribute name="existingCSBInvalidData" type="Object[]" />
+    <aura:attribute name="fileContentData" type="String"/>
+    <aura:attribute name="filename" type="String"/>
+    <!-- It will display 100 records . Change for your requirement-->
+    <!--<aura:attribute name="NumOfRecords" type="Integer" default="100"/> -->
+    <aura:attribute name="showMain" type="Boolean" default="true"/>
+    <aura:attribute name="showResults" type="Boolean" default="false"/>
+    <aura:attribute name="resultErrorContent" type="String"  description="Show the error result"/>
+    <aura:attribute name="cycleYearErrorContent" type="String"  description="Show the error result for cycle year"/>
+    <aura:attribute name="existingCSBErrorContent" type="String"  description="Show the error result for existing CSB"/>
+    <aura:attribute name="resultStatus" type="String" />
+    <aura:attribute name="newAppsAndSpsrSuccessCount" type="integer" />
+    <aura:attribute name="newSpsrSuccessCount" type="integer" />
+    <aura:attribute name="errorCount" type="integer" />
+    <aura:attribute name="updateDataCount" type="integer" />
+
+    <a aura:id="hiddencsv" style="display: none;" href="/" target="_blank"></a>
+        
+    <aura:if isTrue="{!v.showMain}">
+        <div class="slds-text-heading_medium slds-text-align_center slds-p-around_medium" style="background-color:#FFFF;height:100px">A1 File Importer</div>
+            <div  class="slds-drop-zone" ondragover="{!c.onDragOver}" ondrop="{!c.onDrop}" > 
+            <div aura:id="holder" class="slds-m-top--medium slds-align--absolute-center" style="background-color:#FFFF; height:100px" >
+                <h1>Drag and Drop CSV file here</h1>
+            </div>
+        </div>
+     
+        <aura:set attribute="else">
+            
+            <lightning:card class="slds-m-top--medium" title="A1 File Staged for Import">
+                <aura:set attribute="actions">
+                    <lightning:button label="Cancel" variant="brand" onclick="{!c.cancel}" />
+                    <lightning:button label="Save" variant="brand" onclick="{!c.processFileContent}"/>
+                </aura:set>
+                <ui:outputRichText class="uiOutputRichText slds-m-around--large" value="{!v.TargetFileName}"/> 
+                <div style="overflow-x: scroll;">
+                    <ui:outputRichText class="uiOutputRichText slds-m--around-large" value="{!v.TableContent}"/>
+                </div>
+            </lightning:card>
+        </aura:set>
+    </aura:if>
+
+    <aura:if isTrue="{!v.showResults}">
+        <lightning:card class="slds-m-top--medium" title="A1 File Import Results">
+            <aura:set attribute="actions">
+                <lightning:button label="Clear Results" onclick="{!c.clearResults}"/>
+            </aura:set>
+            <ui:outputRichText class="uiOutputRichText slds-m-around--large" value="{!v.TargetFileName}"/>
+            <div class="slds-m-around--large">
+                <div>New Applicants and Sponsorships created: {!v.newAppsAndSpsrSuccessCount}</div>
+                <div>New Sponsorships for Existing Applicants created: {!v.newSpsrSuccessCount}</div>
+                <div>Updated Applicant Data: {!v.updateDataCount}</div>
+                <div>Rows Resulting in Error: {!v.errorCount}</div>
+            </div>
+            <aura:if isTrue="{!v.resultErrorContent != null}">
+                <div class="slds-box">
+                    <lightning:card class="slds-m-top--medium">
+                        <aura:set attribute="title">
+                            <lightning:icon iconName="utility:error" alternativeText="Error!" variant="error" title="error variant" />
+                            Duplicates and Potential Duplicates Detected
+                        </aura:set>
+                        <aura:set attribute="actions">
+                            <lightning:button variant="brand" label="Download Errors csv" onclick="{!c.downloadCsv}"/>
+                        </aura:set>
+                        <div class="slds-text-color_error slds-m-around--large slds-align--absolute-center">The following rows failed to save due to duplicate Applicant and Sponsorship data:</div>
+                        <div style="overflow-x: scroll;">
+                            <ui:outputRichText class="uiOutputRichText slds-m--around-large" value="{!v.resultErrorContent}"/>
+                        </div>
+                    </lightning:card>
+                </div>
+            </aura:if>
+            <aura:if isTrue="{!v.cycleYearErrorContent != null}">
+                <div class="slds-box">
+                    <lightning:card class="slds-m-top--medium" title="Invalid Cycle Year Values">
+                        <aura:set attribute="title">
+                            <lightning:icon iconName="utility:error" alternativeText="Error!" variant="error" title="error variant" />
+                            Invalid Cycle Year Values
+                        </aura:set>
+                        <aura:set attribute="actions">
+                            <lightning:button variant="brand" label="Download Errors csv" onclick="{!c.downloadCycleYearCsv}"/>
+                        </aura:set>
+                        <div class="slds-text-color_error slds-m-around--large slds-align--absolute-center">The following rows failed to save due to invalid cycle year Sponsorship data:</div>
+                        <div style="overflow-x: scroll;">
+                            <ui:outputRichText class="uiOutputRichText slds-m--around-large" value="{!v.cycleYearErrorContent}"/>
+                        </div>
+                    </lightning:card>
+                </div>
+            </aura:if>
+            <aura:if isTrue="{!v.existingCSBErrorContent != null}">
+                <div class="slds-box">
+                    <lightning:card class="slds-m-top--medium" title="Duplicate Sponsorship Values">
+                        <aura:set attribute="title">
+                            <lightning:icon iconName="utility:error" alternativeText="Error!" variant="error" title="error variant" />
+                            Duplicate/Invalid Sponsorship data for Applicant(s) found
+                        </aura:set>
+                        <aura:set attribute="actions">
+                            <lightning:button variant="brand" label="Download Errors csv" onclick="{!c.downloadDuplicateSponsorshipsCsv}"/>
+                        </aura:set>
+                        <div class="slds-text-color_error slds-m-around--large slds-align--absolute-center">The following rows failed to save due to existing or invalid Sponsorship data for Applicant(s):</div>
+                        <div style="overflow-x: scroll;">
+                            <ui:outputRichText class="uiOutputRichText slds-m--around-large" value="{!v.existingCSBErrorContent}"/>
+                        </div>
+                    </lightning:card>
+                </div>
+            </aura:if>
+        </lightning:card>
+    </aura:if>
+    
+    
+
+</aura:component>
